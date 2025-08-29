@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <EditText
+        android:id="@+id/edtEmail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Email"
+        android:inputType="textEmailAddress" />
+
+    <EditText
+        android:id="@+id/edtSenha"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Senha Smartlocker"
+        android:inputType="textPassword" />
+
+    <EditText
+        android:id="@+id/edtSerial"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Serial"
+        android:inputType="text" />
+
+    <EditText
+        android:id="@+id/edtBaseUrl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Base URL"
+        android:inputType="textUri" />
+
+    <Button
+        android:id="@+id/btnSalvar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Salvar" />
+
+    <TextView
+        android:id="@+id/txtDadosSalvos"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="20dp"
+        android:text="Nenhum dado salvo ainda"
+        android:textSize="16sp"
+        android:textColor="@android:color/black" />
+
+</LinearLayout>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/btnInventory"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@android:color/white">
+
+    <Button
+        android:id="@+id/btnStartInventory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Iniciar Leitura"
+        android:textColor="@android:color/white"
+        android:textSize="18sp"
+        android:background="@drawable/btn_rounded"
+        android:padding="14dp"
+        android:layout_alignParentBottom="true" />
+
+    <Button
+        android:id="@+id/btnClearTags"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Apagar Tags"
+        android:textColor="@android:color/white"
+        android:textSize="16sp"
+        android:background="@drawable/btn_rounded"
+        android:padding="12dp"
+        android:layout_above="@id/btnStartInventory"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:id="@+id/tvTagCount"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tags lidas: 0"
+        android:textSize="16sp"
+        android:textColor="#333333"
+        android:layout_above="@id/btnClearTags"
+        android:layout_marginBottom="12dp" />
+
+    <RadioGroup
+        android:id="@+id/rgMode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_above="@id/tvTagCount"
+        android:layout_marginBottom="12dp">
+
+        <RadioButton
+            android:id="@+id/rbLoop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:checked="true"
+            android:text="Auto" />
+
+        <RadioButton
+            android:id="@+id/rbSingle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Single"
+            android:layout_marginStart="24dp" />
+    </RadioGroup>
+
+    <ListView
+        android:id="@+id/lvTags"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:divider="#CCCCCC"
+        android:dividerHeight="1dp"
+        android:background="#F9F9F9"
+        android:layout_above="@id/rgMode" />
+
+</RelativeLayout>

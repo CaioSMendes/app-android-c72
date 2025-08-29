@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/txtDadosRetirada"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:id="@+id/txtDebug"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#FF0000"
+        android:paddingTop="8dp"/>
+
+    <Button
+        android:id="@+id/btnChecar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Checar"/>
+
+    <Button
+        android:id="@+id/btnLog"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Logs"/>
+
+    <ListView
+        android:id="@+id/lvEpcs"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:dividerHeight="8dp"/>
+
+    <!-- Novo botão Retirada, inicialmente escondido -->
+    <Button
+        android:id="@+id/btnObjetc"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Retirada"
+        android:visibility="gone"
+        android:layout_marginTop="8dp"/>
+</LinearLayout>

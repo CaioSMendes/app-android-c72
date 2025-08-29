@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- TextView que mostra dados de setup -->
+    <TextView
+        android:id="@+id/txtDadosDevolucao"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:textStyle="bold"/>
+
+    <!-- TextView para mostrar debug (status HTTP, URL, JSON) -->
+    <TextView
+        android:id="@+id/txtDebugDevolucao"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#FF0000"
+        android:paddingTop="8dp"/>
+
+    <!-- Botão para disparar checagem da API -->
+    <Button
+        android:id="@+id/btnChecarDevolucao"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Checar"/>
+
+    <!-- Botão que aparece ao final do processamento -->
+    <Button
+        android:id="@+id/btnDevolucao"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Devolução"
+        android:visibility="gone"/>
+
+    <!-- ListView que exibe os resultados da API -->
+    <ListView
+        android:id="@+id/lvEpcsDevolucao"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:dividerHeight="8dp"/>
+</LinearLayout>
