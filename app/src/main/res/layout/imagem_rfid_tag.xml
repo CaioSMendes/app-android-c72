@@ -1,29 +1,49 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="horizontal"
     android:layout_width="match_parent"
-    android:layout_height="60dp"
+    android:layout_height="wrap_content"
     android:padding="8dp"
-    android:background="@android:color/white"
-    tools:ignore="ExtraText">
+    android:gravity="center_vertical"
+    android:background="@android:color/white">
 
     <ImageView
         android:id="@+id/imgTag"
-        android:layout_width="50dp"
-        android:layout_height="50dp"
-        android:layout_centerVertical="true"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
         android:src="@drawable/tagrfid"
-        android:contentDescription="TagImage" />
+        android:contentDescription="Tag" />
 
-    <TextView
-        android:id="@+id/tvTagText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_toEndOf="@id/imgTag"
-        android:layout_marginStart="12dp"
-        android:layout_centerVertical="true"
-        android:text="EPC da Tag"
-        android:textSize="16sp"
-        android:textColor="#333333" />
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_marginStart="10dp"
+        android:layout_width="0dp"
+        android:layout_weight="1"
+        android:layout_height="wrap_content">
 
-</RelativeLayout>
+        <TextView
+            android:id="@+id/tvTagText"
+            android:textSize="16sp"
+            android:textColor="#333333"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="EPC da Tag" />
+
+        <TextView
+            android:id="@+id/tvObject"
+            android:textSize="14sp"
+            android:textColor="#1E88E5"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Objeto" />
+
+        <TextView
+            android:id="@+id/tvIdInterno"
+            android:textSize="14sp"
+            android:textColor="#757575"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="ID Interno" />
+
+    </LinearLayout>
+</LinearLayout>

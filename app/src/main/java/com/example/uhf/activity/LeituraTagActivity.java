@@ -1,8 +1,7 @@
 package com.example.uhf.activity;
 
 import android.content.Context;
-import android.content.Intent;
-import android.graphics.Color;
+import android.content.SharedPreferences;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.Bundle;
@@ -16,10 +15,10 @@ import android.view.ViewGroup;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.ImageView;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -27,6 +26,14 @@ import com.example.uhf.R;
 import com.rscja.deviceapi.RFIDWithUHFUART;
 import com.rscja.deviceapi.entity.UHFTAGInfo;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -40,6 +47,7 @@ public class LeituraTagActivity extends AppCompatActivity {
     private TextView tvTagCount;
     private ListView lvTags;
     private CheckBox cbFilter;
+    private Button rbSingle, rbLoop;
 
     private RFIDWithUHFUART mReader;
     private boolean isReading = false;
@@ -48,22 +56,28 @@ public class LeituraTagActivity extends AppCompatActivity {
     private Set<String> tagsLidas = new HashSet<>();
     private TagAdapter adapter;
 
+    private List<String> tagsEncontradas = new ArrayList<>();
+    private List<String> tagsNaoEncontradas = new ArrayList<>();
+    private List<String> objetosEncontrados = new ArrayList<>();
+    private List<String> idsInternosEncontrados = new ArrayList<>();
+    private List<TagItem> listaTagItems = new ArrayList<>();
+    private TagItemAdapter tagItemAdapter;
+
     private Handler handler = new Handler();
     private Runnable leituraRunnable;
-
     private ToneGenerator toneGen;
-
     private HandlerThread readerThread;
     private Handler readerHandler;
 
+    private String acao; // variável de instância
     private boolean modoSingle = false; // Loop como padrão
-    private Button rbSingle, rbLoop;
-
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_leitura_tag);
+
+        acao = getIntent().getStringExtra("acao");
 
         btnInventory = findViewById(R.id.btnStartInventory);
         btnClearTags = findViewById(R.id.btnClearTags);
@@ -73,24 +87,16 @@ public class LeituraTagActivity extends AppCompatActivity {
         rbSingle = findViewById(R.id.rbSingle);
         rbLoop = findViewById(R.id.rbLoop);
 
-        // Inicializa o visual dos botões conforme o modo padrão
-
-        // Clique em "Single"
-        rbSingle.setOnClickListener(v -> {
-            modoSingle = true;
-        });
-
-        // Clique em "Loop"
-        rbLoop.setOnClickListener(v -> {
-            modoSingle = false;
-        });
+        rbSingle.setOnClickListener(v -> modoSingle = true);
+        rbLoop.setOnClickListener(v -> modoSingle = false);
 
         adapter = new TagAdapter(this, listaTags);
-        lvTags.setAdapter(adapter);
+        tagItemAdapter = new TagItemAdapter(this, listaTagItems);
+        lvTags.setAdapter(tagItemAdapter);
+
 
         toneGen = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
 
-        // Inicializa leitor em background
         readerThread = new HandlerThread("RFIDReaderThread");
         readerThread.start();
         readerHandler = new Handler(readerThread.getLooper());
@@ -105,10 +111,31 @@ public class LeituraTagActivity extends AppCompatActivity {
         });
 
         btnClearTags.setOnClickListener(v -> {
-            listaTags.clear();
+            // Para a leitura caso esteja em andamento
+            if (isReading) {
+                pararLeitura();
+            }
+
+            // Limpa todas as listas de dados
             tagsLidas.clear();
-            adapter.notifyDataSetChanged();
+            listaTags.clear();
+            listaTagItems.clear();
+            objetosEncontrados.clear();
+            idsInternosEncontrados.clear();
+            tagsEncontradas.clear();
+            tagsNaoEncontradas.clear();
+
+            // Atualiza o Adapter para limpar a ListView
+            tagItemAdapter.notifyDataSetChanged();
+
+            // Zera contador na tela
             tvTagCount.setText("0");
+
+            // Move scroll da ListView para o topo
+            lvTags.setSelection(0);
+
+            // Reset botão de iniciar leitura
+            btnInventory.setText("Iniciar Leitura");
         });
     }
 
@@ -116,12 +143,8 @@ public class LeituraTagActivity extends AppCompatActivity {
         try {
             mReader = RFIDWithUHFUART.getInstance();
             if (mReader.init(this)) {
-                Log.i(TAG_LOG, "Leitor RFID inicializado com sucesso.");
-                runOnUiThread(() ->
-                        Toast.makeText(this, "Leitor RFID inicializado.", Toast.LENGTH_SHORT).show()
-                );
+                runOnUiThread(() -> Toast.makeText(this, "Leitor RFID inicializado.", Toast.LENGTH_SHORT).show());
             } else {
-                Log.e(TAG_LOG, "Falha ao inicializar leitor.");
                 runOnUiThread(() -> {
                     Toast.makeText(this, "Erro ao inicializar leitor.", Toast.LENGTH_LONG).show();
                     finish();
@@ -129,11 +152,58 @@ public class LeituraTagActivity extends AppCompatActivity {
             }
             try { mReader.stopInventory(); } catch (Exception ignored) {}
         } catch (Exception e) {
-            Log.e(TAG_LOG, "Erro ao inicializar UHF: " + e.getMessage(), e);
             runOnUiThread(() -> {
                 Toast.makeText(this, "Erro crítico ao inicializar leitor.", Toast.LENGTH_LONG).show();
                 finish();
             });
+        }
+    }
+
+    private static class TagItemAdapter extends BaseAdapter {
+        private List<TagItem> items;
+        private LayoutInflater inflater;
+
+        public TagItemAdapter(Context context, List<TagItem> items) {
+            this.items = items;
+            this.inflater = LayoutInflater.from(context);
+        }
+
+        @Override
+        public int getCount() { return items.size(); }
+
+        @Override
+        public Object getItem(int position) { return items.get(position); }
+
+        @Override
+        public long getItemId(int position) { return position; }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            ViewHolder holder;
+            if (convertView == null) {
+                convertView = inflater.inflate(R.layout.imagem_rfid_tag, parent, false);
+                holder = new ViewHolder();
+                holder.tvTag = convertView.findViewById(R.id.tvTagText);
+                holder.tvObjeto = convertView.findViewById(R.id.tvObject);
+                holder.tvIdInterno = convertView.findViewById(R.id.tvIdInterno);
+                holder.imgTag = convertView.findViewById(R.id.imgTag);
+                convertView.setTag(holder);
+            } else {
+                holder = (ViewHolder) convertView.getTag();
+            }
+
+            TagItem item = items.get(position);
+            holder.tvTag.setText(item.tagRFID);
+            holder.tvObjeto.setText(item.objeto);
+            holder.tvIdInterno.setText(item.idInterno);
+            holder.imgTag.setImageResource(R.drawable.tagrfid);
+
+            return convertView;
+        }
+
+        private static class ViewHolder {
+            TextView tvTag, tvObjeto, tvIdInterno;
+            ImageView imgTag;
         }
     }
 
@@ -147,7 +217,8 @@ public class LeituraTagActivity extends AppCompatActivity {
         btnInventory.setText("Parar Leitura");
         tagsLidas.clear();
         listaTags.clear();
-        adapter.notifyDataSetChanged();
+        listaTagItems.clear(); // limpa os itens da API
+        tagItemAdapter.notifyDataSetChanged();
         tvTagCount.setText("0");
 
         readerHandler.post(() -> {
@@ -174,31 +245,8 @@ public class LeituraTagActivity extends AppCompatActivity {
                         String epc = tagInfo.getEPC();
                         if (!tagsLidas.contains(epc)) {
                             tagsLidas.add(epc);
-
-                            // Pega primeiros 7 caracteres da EPC
-                            String primeiros7 = epc.length() >= 6 ? epc.substring(0, 6) : epc;
-                            String valorExibir;
-
-                            // Verifica se contém letras (A-F)
-                            if (primeiros7.matches("[0-9]+")) {
-                                // Só números → decimal, mostra os 7 primeiros
-                                valorExibir = primeiros7;
-                            } else {
-                                // Contém letras → trata como hexadecimal e converte para decimal
-                                try {
-                                    long decimal = Long.parseLong(primeiros7, 16);
-                                    valorExibir = String.valueOf(decimal);
-                                } catch (NumberFormatException e) {
-                                    // Se não der para converter, mostra raw
-                                    valorExibir = primeiros7;
-                                }
-                            }
-
-                            listaTags.add(valorExibir);
-                            adapter.notifyDataSetChanged();
-                            tvTagCount.setText(String.valueOf(tagsLidas.size()));
-
-                            // Som ao ler tag
+                            // Somente chamada da API
+                            buscarTagApi(epc);
                             toneGen.startTone(ToneGenerator.TONE_CDMA_PIP, 150);
                         }
                     }
@@ -222,38 +270,104 @@ public class LeituraTagActivity extends AppCompatActivity {
         });
     }
 
-    @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
-        int triggerKeyCode = 293; // Código do gatilho do C72
-        Log.d(TAG_LOG, "Key event: " + event.getKeyCode() + " action: " + event.getAction());
+    private void buscarTagApi(String tagRFID) {
+        SharedPreferences prefs = getSharedPreferences("SetupPrefs", MODE_PRIVATE);
+        String baseUrl = prefs.getString("baseUrl", "http://smartlockerbrasiliarfid.com.br");
+        String serial = prefs.getString("serial", "");
+        String urlString = baseUrl + "/api/v1/find_tag";
+        String jsonBody = "{ \"serial\": \"" + serial + "\", \"tagRFID\": \"" + tagRFID + "\" }";
 
-        if (event.getKeyCode() == triggerKeyCode) {
-            if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                Log.d(TAG_LOG, "Gatilho pressionado!");
+        new Thread(() -> {
+            try {
+                URL url = new URL(urlString);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+                conn.setDoOutput(true);
 
-                if (modoSingle) {
-                    // Single: lê uma vez
-                    if (!isReading) {
-                        iniciarLeitura();
-                        // Para logo após a leitura
-                        handler.postDelayed(this::pararLeitura, 200); // 200ms para garantir leitura
+                OutputStream os = conn.getOutputStream();
+                os.write(jsonBody.getBytes("UTF-8"));
+                os.close();
+
+                int responseCode = conn.getResponseCode();
+                InputStream is = (responseCode == 200) ? conn.getInputStream() : conn.getErrorStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+                StringBuilder response = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) response.append(line);
+                reader.close();
+                conn.disconnect();
+
+                if (responseCode == 200) {
+                    JSONObject json = new JSONObject(response.toString());
+                    if ("SUCCESS".equals(json.getString("status"))) {
+                        JSONObject data = json.getJSONObject("data");
+                        String objeto = data.getString("object");
+                        String idInterno = data.getString("idInterno");
+
+                        // Tratar tag: pegar os primeiros 6 caracteres
+                        String tagCurta = tagRFID.length() >= 6 ? tagRFID.substring(0, 6) : tagRFID;
+                        String tagExibir;
+                        if (tagCurta.matches("[0-9]+")) {
+                            tagExibir = tagCurta;
+                        } else {
+                            try {
+                                long decimal = Long.parseLong(tagCurta, 16);
+                                tagExibir = String.format("%06d", decimal % 1000000);
+                            } catch (NumberFormatException e) {
+                                tagExibir = tagCurta;
+                            }
+                        }
+
+                        // Atualiza a lista na UI
+                        final String finalTagExibir = tagExibir;
+                        final String finalObjeto = objeto;
+                        final String finalIdInterno = idInterno;
+
+                        runOnUiThread(() -> {
+                            TagItem item = new TagItem(finalTagExibir, finalObjeto, finalIdInterno);
+                            listaTagItems.add(item);
+                            tagItemAdapter.notifyDataSetChanged();
+                            tvTagCount.setText(String.valueOf(listaTagItems.size()));
+                        });
+
+                        synchronized (tagsEncontradas) {
+                            tagsEncontradas.add(tagRFID);
+                        }
                     }
-                } else {
-                    // Loop: inicia leitura contínua
-                    if (!isReading) iniciarLeitura();
+                } else if (responseCode == 404) {
+                    synchronized (tagsNaoEncontradas) {
+                        tagsNaoEncontradas.add(tagRFID);
+                    }
                 }
 
-            } else if (event.getAction() == KeyEvent.ACTION_UP) {
-                Log.d(TAG_LOG, "Gatilho solto!");
-                // Para leitura contínua se estiver em Loop
-                if (!modoSingle && isReading) {
-                    pararLeitura();
+            } catch (Exception e) {
+                Log.e(TAG_LOG, "Erro API tag", e);
+                synchronized (tagsNaoEncontradas) {
+                    tagsNaoEncontradas.add(tagRFID);
                 }
             }
+        }).start();
+    }
 
+
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        int triggerKeyCode = 293;
+        if (event.getKeyCode() == triggerKeyCode) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                if (modoSingle && !isReading) {
+                    iniciarLeitura();
+                    handler.postDelayed(this::pararLeitura, 200);
+                } else if (!modoSingle && !isReading) {
+                    iniciarLeitura();
+                }
+            } else if (event.getAction() == KeyEvent.ACTION_UP && !modoSingle && isReading) {
+                pararLeitura();
+            }
             return true;
         }
-
         return super.dispatchKeyEvent(event);
     }
 
@@ -262,16 +376,11 @@ public class LeituraTagActivity extends AppCompatActivity {
         super.onDestroy();
         pararLeitura();
         if (mReader != null) {
-            try {
-                mReader.free();
-            } catch (Exception e) {
-                Log.e(TAG_LOG, "Erro ao liberar leitor: " + e.getMessage());
-            }
+            try { mReader.free(); } catch (Exception e) { Log.e(TAG_LOG, "Erro ao liberar leitor", e); }
         }
         if (readerThread != null) readerThread.quitSafely();
     }
 
-    // Adapter para ListView
     private static class TagAdapter extends BaseAdapter {
         private List<String> tags;
         private LayoutInflater inflater;
@@ -294,10 +403,8 @@ public class LeituraTagActivity extends AppCompatActivity {
         public View getView(int position, View convertView, ViewGroup parent) {
             ViewHolder holder;
             if (convertView == null) {
-                //convertView = inflater.inflate(android.R.layout.simple_list_item_1, parent, false);
                 convertView = inflater.inflate(R.layout.imagem_rfid_tag, parent, false);
                 holder = new ViewHolder();
-                //holder.tvTag = convertView.findViewById(android.R.id.text1);
                 holder.tvTag = convertView.findViewById(R.id.tvTagText);
                 holder.imgTag = convertView.findViewById(R.id.imgTag);
                 convertView.setTag(holder);

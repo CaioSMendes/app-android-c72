@@ -18,7 +18,9 @@ public class HomeActivity extends AppCompatActivity {
         LinearLayout btnConfiguracao = findViewById(R.id.btnConfiguracao);
         LinearLayout btnRetirada = findViewById(R.id.btnRetiradaHome);
         LinearLayout btnEntrega = findViewById(R.id.btnEntrega);
+        //LinearLayout btnCadastro = findViewById(R.id.btnCadastro); // aqui vai pro cadastro antigo
         LinearLayout btnCadastro = findViewById(R.id.btnCadastro);
+
 
         btnConfiguracao.setOnClickListener(v -> {
             Intent intent = new Intent(this, SetupActivity.class);
@@ -27,16 +29,19 @@ public class HomeActivity extends AppCompatActivity {
 
         btnRetirada.setOnClickListener(v -> {
             Intent intent = new Intent(this, LeituraTagActivity.class);
+            intent.putExtra("acao", "retirada");
             startActivity(intent);
         });
 
         btnEntrega.setOnClickListener(v -> {
             Intent intent = new Intent(this, LeituraTagActivity.class);
+            intent.putExtra("acao", "entrega");
             startActivity(intent);
         });
 
         btnCadastro.setOnClickListener(v -> {
-            Intent intent = new Intent(this, CadastroActivity.class);
+            Intent intent = new Intent(this, LeituraTagActivity.class);
+            intent.putExtra("acao", "cadastro");
             startActivity(intent);
         });
     }
