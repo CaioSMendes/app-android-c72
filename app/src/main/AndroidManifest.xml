@@ -49,7 +49,6 @@
         <activity android:name=".activity.CadastroActivity" />
         <activity android:name=".activity.CadastroDetalheActivity" />
         <activity android:name=".activity.LeituraTagActivity" />
-        <activity android:name=".activity.ImagemRfidTagActivity" />
         <activity android:name="com.example.uhf.activity.UHFMainActivity" />
     </application>
 
