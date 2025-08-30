@@ -2,12 +2,14 @@ package com.example.uhf.activity;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
+import android.util.SparseBooleanArray;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -17,6 +19,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ImageView;
 import android.widget.ListView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -68,6 +71,7 @@ public class LeituraTagActivity extends AppCompatActivity {
     private ToneGenerator toneGen;
     private HandlerThread readerThread;
     private Handler readerHandler;
+    private Button btnAcaoSelecionada;
 
     private String acao; // variável de instância
     private boolean modoSingle = false; // Loop como padrão
@@ -77,66 +81,147 @@ public class LeituraTagActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_leitura_tag);
 
+        // Recupera a ação passada via Intent
         acao = getIntent().getStringExtra("acao");
 
+        // Inicializa views
+        inicializarViews();
+
+        // Configura adaptadores da ListView
+        configurarAdapters();
+
+        // Configura botões de leitura e seleção
+        configurarBotoes();
+
+        // Inicializa leitor RFID em thread separada
+        inicializarLeitorRFID();
+    }
+
+    /** Inicializa as views da activity */
+    /** Inicializa as views da activity */
+    private void inicializarViews() {
         btnInventory = findViewById(R.id.btnStartInventory);
         btnClearTags = findViewById(R.id.btnClearTags);
         tvTagCount = findViewById(R.id.tvTagCount);
         lvTags = findViewById(R.id.lvTags);
+        lvTags.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+        lvTags.setItemsCanFocus(false); // garante múltipla seleção
         cbFilter = findViewById(R.id.cbFilter);
         rbSingle = findViewById(R.id.rbSingle);
         rbLoop = findViewById(R.id.rbLoop);
 
+        // Configura seleção do modo de leitura
         rbSingle.setOnClickListener(v -> modoSingle = true);
         rbLoop.setOnClickListener(v -> modoSingle = false);
 
+        // Inicializa ToneGenerator
+        toneGen = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
+    }
+
+
+    /** Configura os adaptadores da ListView */
+    private void configurarAdapters() {
         adapter = new TagAdapter(this, listaTags);
         tagItemAdapter = new TagItemAdapter(this, listaTagItems);
         lvTags.setAdapter(tagItemAdapter);
 
+        // Gerencia seleção manual de itens
+        lvTags.setOnItemClickListener((parent, view, position, id) -> {
+            TagItem item = listaTagItems.get(position);
+            item.setSelecionado(!item.isSelecionado());
+            lvTags.setItemChecked(position, item.isSelecionado()); // reflete no ListView
+            tagItemAdapter.notifyDataSetChanged();
+            atualizarVisibilidadeBotaoAcao();
+        });
+    }
 
-        toneGen = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
+    /** Configura os botões da tela */
+    private void configurarBotoes() {
+        ViewGroup layout = (ViewGroup) btnInventory.getParent(); // Pega o layout pai real
 
+        btnAcaoSelecionada = new Button(this);
+        btnAcaoSelecionada.setText("Confirmar " + acao);
+        btnAcaoSelecionada.setVisibility(View.GONE);
+
+        RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(
+                RelativeLayout.LayoutParams.MATCH_PARENT,
+                RelativeLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);
+        layout.addView(btnAcaoSelecionada, params);
+
+        btnAcaoSelecionada.setOnClickListener(v -> confirmarSelecao());
+
+        btnInventory.setOnClickListener(v -> {
+            if (!isReading) iniciarLeitura();
+            else pararLeitura();
+        });
+
+        btnClearTags.setOnClickListener(v -> limparLeitura());
+    }
+
+    /** Inicializa leitor RFID em thread separada */
+    private void inicializarLeitorRFID() {
         readerThread = new HandlerThread("RFIDReaderThread");
         readerThread.start();
         readerHandler = new Handler(readerThread.getLooper());
         readerHandler.post(this::inicializarLeitor);
+    }
 
-        btnInventory.setOnClickListener(v -> {
-            if (!isReading) {
-                iniciarLeitura();
-            } else {
-                pararLeitura();
+    /** Atualiza a visibilidade do botão de ação */
+    private void atualizarVisibilidadeBotaoAcao() {
+        boolean algumSelecionado = false;
+
+        for (TagItem item : listaTagItems) {
+            if (item.isSelecionado()) {
+                algumSelecionado = true;
+                break;
             }
-        });
+        }
 
-        btnClearTags.setOnClickListener(v -> {
-            // Para a leitura caso esteja em andamento
-            if (isReading) {
-                pararLeitura();
+        if (algumSelecionado) {
+            btnAcaoSelecionada.setText("Confirmar " + acao); // ex: Retirada, Entrega ou Cadastro
+            btnInventory.setVisibility(View.GONE);            // esconde "Iniciar Leitura"
+            btnClearTags.setVisibility(View.GONE);           // esconde "Apagar Tags"
+            btnAcaoSelecionada.setVisibility(View.VISIBLE);  // mostra botão de ação
+        } else {
+            btnInventory.setVisibility(View.VISIBLE);
+            btnClearTags.setVisibility(View.VISIBLE);
+            btnAcaoSelecionada.setVisibility(View.GONE);
+        }
+    }
+
+    /** Confirma os itens selecionados na ListView */
+    private void confirmarSelecao() {
+        SparseBooleanArray checked = lvTags.getCheckedItemPositions();
+        ArrayList<String> selecionados = new ArrayList<>();
+
+        for (int i = 0; i < checked.size(); i++) {
+            int key = checked.keyAt(i);
+            if (checked.valueAt(i)) {
+                selecionados.add(listaTagItems.get(key).getIdTag());
             }
+        }
 
-            // Limpa todas as listas de dados
-            tagsLidas.clear();
-            listaTags.clear();
-            listaTagItems.clear();
-            objetosEncontrados.clear();
-            idsInternosEncontrados.clear();
-            tagsEncontradas.clear();
-            tagsNaoEncontradas.clear();
+        Toast.makeText(this, "Itens selecionados: " + selecionados.size(), Toast.LENGTH_SHORT).show();
+    }
 
-            // Atualiza o Adapter para limpar a ListView
-            tagItemAdapter.notifyDataSetChanged();
+    /** Limpa todas as listas e reseta a interface */
+    private void limparLeitura() {
+        if (isReading) pararLeitura();
 
-            // Zera contador na tela
-            tvTagCount.setText("0");
+        tagsLidas.clear();
+        listaTags.clear();
+        listaTagItems.clear();
+        objetosEncontrados.clear();
+        idsInternosEncontrados.clear();
+        tagsEncontradas.clear();
+        tagsNaoEncontradas.clear();
 
-            // Move scroll da ListView para o topo
-            lvTags.setSelection(0);
-
-            // Reset botão de iniciar leitura
-            btnInventory.setText("Iniciar Leitura");
-        });
+        tagItemAdapter.notifyDataSetChanged();
+        tvTagCount.setText("0");
+        lvTags.setSelection(0);
+        btnInventory.setText("Iniciar Leitura");
     }
 
     private void inicializarLeitor() {
@@ -193,16 +278,31 @@ public class LeituraTagActivity extends AppCompatActivity {
             }
 
             TagItem item = items.get(position);
+
             holder.tvTag.setText(item.tagRFID);
             holder.tvObjeto.setText(item.objeto);
             holder.tvIdInterno.setText(item.idInterno);
             holder.imgTag.setImageResource(R.drawable.tagrfid);
 
+            // Destacar item selecionado mudando fundo
+            if (item.isSelecionado()) {
+                convertView.setBackgroundColor(Color.parseColor("#CCCCCC")); // fundo vermelho claro
+            } else {
+                convertView.setBackgroundColor(Color.TRANSPARENT);
+            }
+
+            // Clique para alternar seleção
+            convertView.setOnClickListener(v -> {
+                item.setSelecionado(!item.isSelecionado());
+                notifyDataSetChanged(); // atualiza lista para mostrar seleção
+            });
+
             return convertView;
         }
-
         private static class ViewHolder {
-            TextView tvTag, tvObjeto, tvIdInterno;
+            TextView tvTag;
+            TextView tvObjeto;
+            TextView tvIdInterno;
             ImageView imgTag;
         }
     }
