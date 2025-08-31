@@ -14,6 +14,9 @@ public class TagItem {
     }
 
     // Getter para compatibilidade
+    public String getObjeto() {
+        return objeto;
+    }
     public String getIdTag() {
         return idInterno; // ou return tagRFID; dependendo do que você precisa
     }
