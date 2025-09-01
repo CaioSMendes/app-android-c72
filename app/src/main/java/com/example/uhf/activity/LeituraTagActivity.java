@@ -181,10 +181,40 @@ public class LeituraTagActivity extends AppCompatActivity {
         }
 
         if (algumSelecionado) {
-            btnAcaoDefault.setText("Confirmar " + acao);
+            // Define o texto do botão de acordo com a ação
+            String textoBotao;
+            int iconeRes;
+
+            switch (acao) {
+                case "retirada":
+                    textoBotao = "Confirmar Retirada";
+                    iconeRes = R.drawable.ic_retirada;
+                    break;
+                case "entrega":
+                    textoBotao = "Confirmar Entrega";
+                    iconeRes = R.drawable.ic_entrega;
+                    break;
+                case "cadastro":
+                    textoBotao = "Confirmar Cadastro";
+                    iconeRes = R.drawable.ic_cadastro;
+                    break;
+                default:
+                    textoBotao = "Confirmar";
+                    iconeRes = 0;
+            }
+
+            btnAcaoDefault.setText(textoBotao);
+
+            // Adiciona o ícone à esquerda do texto
+            if (iconeRes != 0) {
+                btnAcaoDefault.setCompoundDrawablesWithIntrinsicBounds(iconeRes, 0, 0, 0);
+                btnAcaoDefault.setCompoundDrawablePadding(16); // espaço entre ícone e texto
+            }
+
             btnAcaoDefault.setVisibility(View.VISIBLE);
             btnInventory.setVisibility(View.VISIBLE);
             btnClearTags.setVisibility(View.VISIBLE);
+
         } else {
             btnAcaoDefault.setVisibility(View.GONE);
         }
@@ -192,12 +222,23 @@ public class LeituraTagActivity extends AppCompatActivity {
 
     /** Confirma os itens selecionados */
     private void confirmarSelecao() {
-        ArrayList<String> selecionados = new ArrayList<>();
+        ArrayList<String> selecionadosRFID = new ArrayList<>();
+        ArrayList<String> selecionadosID = new ArrayList<>();
+        ArrayList<String> selecionadosObjeto = new ArrayList<>();
+
         for (TagItem item : listaTagItems) {
-            if (item.isSelecionado()) selecionados.add(item.getIdTag());
+            if (item.isSelecionado()) {
+                selecionadosRFID.add(item.tagRFID);
+                selecionadosID.add(item.idInterno);
+                selecionadosObjeto.add(item.objeto);
+            }
         }
-        Toast.makeText(this, "Itens selecionados: " + selecionados.size(), Toast.LENGTH_SHORT).show();
-        Log.d(TAG_LOG, "Itens selecionados: " + selecionados);
+
+        Log.d(TAG_LOG, "Tags RFID selecionadas: " + selecionadosRFID);
+        Log.d(TAG_LOG, "IDs Internos selecionados: " + selecionadosID);
+        Log.d(TAG_LOG, "Objetos selecionados: " + selecionadosObjeto);
+
+        Toast.makeText(this, "Itens selecionados: " + selecionadosRFID.size(), Toast.LENGTH_SHORT).show();
     }
 
     /** Limpa todas as listas e reseta a interface */
@@ -280,6 +321,8 @@ public class LeituraTagActivity extends AppCompatActivity {
 
     /** Busca tag na API */
     private void buscarTagApi(String tagRFID) {
+        Log.d(TAG_LOG, "Iniciando busca para tag: " + tagRFID + " | Ação: " + acao);
+
         SharedPreferences prefs = getSharedPreferences("SetupPrefs", MODE_PRIVATE);
         String baseUrl = prefs.getString("baseUrl", "http://smartlockerbrasiliarfid.com.br");
         String serial = prefs.getString("serial", "");
@@ -307,6 +350,7 @@ public class LeituraTagActivity extends AppCompatActivity {
                 reader.close();
                 conn.disconnect();
 
+                // TAG ENCONTRADA NA API (200)
                 if (responseCode == 200) {
                     JSONObject json = new JSONObject(response.toString());
                     if ("SUCCESS".equals(json.getString("status"))) {
@@ -314,36 +358,64 @@ public class LeituraTagActivity extends AppCompatActivity {
                         String objeto = data.getString("object");
                         String idInterno = data.getString("idInterno");
 
-                        String tagCurta = tagRFID.length() >= 6 ? tagRFID.substring(0, 6) : tagRFID;
-                        String tagExibir;
-                        try {
-                            long decimal = Long.parseLong(tagCurta, 16);
-                            tagExibir = String.format("%06d", decimal % 1000000);
-                        } catch (NumberFormatException e) {
-                            tagExibir = tagCurta;
-                        }
-                        // Atualiza a lista na UI
-                        final String finalTagExibir = tagExibir;
+                        // Apenas para exibição na UI: primeiros 6 dígitos
+                        String tagExibir = tagRFID.length() >= 6 ? tagRFID.substring(0, 6) : tagRFID;
 
-                        runOnUiThread(() -> {
-                            TagItem item = new TagItem(finalTagExibir, objeto, idInterno);
-                            listaTagItems.add(item);
-                            tagItemAdapter.notifyDataSetChanged();
-                            tvTagCount.setText(String.valueOf(listaTagItems.size()));
-                        });
+                        // Se não estiver no modo Cadastro, exibe normalmente
+                        if (!"Cadastro".equalsIgnoreCase(acao)) {
+                            Log.d(TAG_LOG, "Tag encontrada exibida: " + tagExibir);
+
+                            runOnUiThread(() -> {
+                                // Salva a tag completa no objeto, exibe 6 primeiros dígitos no Adapter
+                                TagItem item = new TagItem(tagRFID, objeto, idInterno);
+                                listaTagItems.add(item);
+                                tagItemAdapter.notifyDataSetChanged();
+                                tvTagCount.setText(String.valueOf(listaTagItems.size()));
+                                Log.d(TAG_LOG, "Lista atual: " + listaTagItems.size() + " itens.");
+                            });
+                        } else {
+                            Log.d(TAG_LOG, "Tag encontrada ignorada no Cadastro: " + tagExibir);
+                        }
 
                         synchronized (tagsEncontradas) { tagsEncontradas.add(tagRFID); }
                     }
-                } else if (responseCode == 404) {
+                }
+                // TAG NÃO ENCONTRADA (404)
+                else if (responseCode == 404) {
+                    synchronized (tagsNaoEncontradas) { tagsNaoEncontradas.add(tagRFID); }
+
+                    // Exibir apenas se estiver em Cadastro
+                    if ("Cadastro".equalsIgnoreCase(acao)) {
+                        Log.d(TAG_LOG, "Tag NÃO encontrada exibida no Cadastro: " + tagRFID);
+
+                        // Apenas para exibição na UI: primeiros 6 dígitos
+                        String tagExibir = tagRFID.length() >= 6 ? tagRFID.substring(0, 6) : tagRFID;
+
+                        runOnUiThread(() -> {
+                            // Salva a tag completa, exibe 6 dígitos
+                            TagItem item = new TagItem(tagRFID, "Não encontrado", "");
+                            listaTagItems.add(item);
+                            tagItemAdapter.notifyDataSetChanged();
+                            tvTagCount.setText(String.valueOf(listaTagItems.size()));
+                            Log.d(TAG_LOG, "Lista atual (Cadastro): " + listaTagItems.size() + " itens.");
+                        });
+                    } else {
+                        Log.d(TAG_LOG, "Tag NÃO encontrada ignorada (acao=" + acao + "): " + tagRFID);
+                    }
+                }
+                // OUTROS CÓDIGOS DE ERRO (500, 400 etc.)
+                else {
+                    Log.d(TAG_LOG, "Erro HTTP " + responseCode + " para tag: " + tagRFID);
                     synchronized (tagsNaoEncontradas) { tagsNaoEncontradas.add(tagRFID); }
                 }
 
             } catch (Exception e) {
-                Log.e(TAG_LOG, "Erro API tag", e);
+                Log.e(TAG_LOG, "Erro ao buscar tag " + tagRFID, e);
                 synchronized (tagsNaoEncontradas) { tagsNaoEncontradas.add(tagRFID); }
             }
         }).start();
     }
+
 
     /** Captura evento de trigger físico */
     @Override
@@ -405,7 +477,11 @@ public class LeituraTagActivity extends AppCompatActivity {
             } else holder = (ViewHolder) convertView.getTag();
 
             TagItem item = items.get(position);
-            holder.tvTag.setText(item.tagRFID);
+
+            // Mostra apenas os 6 primeiros dígitos na tela
+            String tagExibir = item.tagRFID.length() >= 6 ? item.tagRFID.substring(0, 6) : item.tagRFID;
+            holder.tvTag.setText(tagExibir);
+
             holder.tvObjeto.setText(item.objeto);
             holder.tvIdInterno.setText(item.idInterno);
             holder.imgTag.setImageResource(R.drawable.tagrfid);
@@ -420,6 +496,7 @@ public class LeituraTagActivity extends AppCompatActivity {
 
             return convertView;
         }
+
 
         static class ViewHolder {
             TextView tvTag, tvObjeto, tvIdInterno;

@@ -13,12 +13,16 @@ public class TagItem {
         this.selecionado = false;
     }
 
-    // Getter para compatibilidade
+    public String getTagRFID() {
+        return tagRFID;
+    }
+
     public String getObjeto() {
         return objeto;
     }
-    public String getIdTag() {
-        return idInterno; // ou return tagRFID; dependendo do que você precisa
+
+    public String getIdInterno() {
+        return idInterno;
     }
 
     public boolean isSelecionado() {
@@ -28,5 +32,4 @@ public class TagItem {
     public void setSelecionado(boolean selecionado) {
         this.selecionado = selecionado;
     }
-
 }

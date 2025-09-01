@@ -52,7 +52,8 @@
     <Button
         android:id="@+id/btnAcaoDefault"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="50dp"
+        android:background="@drawable/btn_rounded"
         android:layout_above="@id/btnClearTags"
         android:layout_marginBottom="14dp"
         android:backgroundTint="#FFC300"
@@ -65,7 +66,7 @@
     <Button
         android:id="@+id/btnClearTags"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="50dp"
         android:layout_above="@id/btnStartInventory"
         android:layout_marginBottom="14dp"
         android:background="@drawable/btn_rounded"
