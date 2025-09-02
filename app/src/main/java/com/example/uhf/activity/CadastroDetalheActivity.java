@@ -130,16 +130,41 @@ public class CadastroDetalheActivity extends AppCompatActivity {
                 conn.disconnect();
 
                 runOnUiThread(() -> {
-                    if (responseCode == 200 || responseCode == 201) {
+                    try {
+                        if (responseCode == 200 || responseCode == 201) {
+                            // Mostra um diálogo de sucesso
+                            new androidx.appcompat.app.AlertDialog.Builder(this)
+                                    .setTitle("Sucesso")
+                                    .setMessage("Objeto cadastrado com sucesso!")
+                                    .setCancelable(false)
+                                    .setPositiveButton("OK", (dialog, which) -> {
+                                        dialog.dismiss(); // fecha o diálogo
+                                        finish(); // fecha a activity e volta para a lista de leitura
+                                    })
+                                    .show();
+
+                        } else {
+                            String mensagemErro = response.toString();
+                            try {
+                                JSONObject json = new JSONObject(response.toString());
+                                if (json.has("error")) {
+                                    mensagemErro = json.getString("error");
+                                }
+                            } catch (Exception e) {
+                                Log.e("CadastroDetalhe", "Erro ao interpretar JSON de erro", e);
+                            }
+
+                            Toast.makeText(this,
+                                    "Erro ao cadastrar objeto: " + mensagemErro, Toast.LENGTH_LONG).show();
+                            Log.e("CadastroDetalhe", "Resposta API: " + response.toString());
+                        }
+                    } catch (Exception e) {
                         Toast.makeText(this,
-                                "Objeto cadastrado com sucesso!", Toast.LENGTH_LONG).show();
-                    } else {
-                        Toast.makeText(this,
-                                "Erro ao cadastrar objeto: " + responseCode, Toast.LENGTH_LONG).show();
-                        Log.e("CadastroDetalhe", "Resposta API: " + response.toString());
+                                "Erro inesperado ao processar resposta", Toast.LENGTH_LONG).show();
+                        Log.e("CadastroDetalhe", "Erro inesperado", e);
                     }
                 });
-
+                
             } catch (Exception e) {
                 runOnUiThread(() -> Toast.makeText(this,
                         "Erro: " + e.getMessage(), Toast.LENGTH_LONG).show());
