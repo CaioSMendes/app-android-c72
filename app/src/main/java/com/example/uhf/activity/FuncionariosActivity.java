@@ -4,6 +4,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -27,9 +28,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.example.uhf.AppData;  // import da sua classe global
-
-
 public class FuncionariosActivity extends AppCompatActivity {
 
     private ListView lvFuncionarios;
@@ -42,39 +40,47 @@ public class FuncionariosActivity extends AppCompatActivity {
     private Button btnConfirmarDevolucao;
     private String baseUrl;
     private String serial;
-    private String tagRFID; // pode receber via Intent, ajustar conforme
+    private int giverId; // ID do operador selecionado
+    private ArrayList<String> listaTags; // lista de tags recebida
+    private String acao;
 
-    private int giverId;    // exemplo, de quem entrega (ajuste conforme no app)
-    private int receiverId; // exemplo, de quem recebe (ajuste conforme no app)
-
-    private ArrayList<String> listaTags; // <-- aqui
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_funcionarios);
-        // Recebe o ID do operador
-        giverId = getIntent().getIntExtra("operadorId", -1);
-
-        if (giverId == -1) {
-            Toast.makeText(this, "Erro: ID do operador não recebido!", Toast.LENGTH_LONG).show();
-        }
-
-        // Recebe a lista de tags
-        listaTags = getIntent().getStringArrayListExtra("listaTags");
-        if (listaTags == null) listaTags = new ArrayList<>();
 
         lvFuncionarios = findViewById(R.id.lvFuncionarios);
         txtFuncionariosSelecionados = findViewById(R.id.txtFuncionariosSelecionados);
         btnConfirmarEntrega = findViewById(R.id.btnConfirmarEntrega);
         btnConfirmarDevolucao = findViewById(R.id.btnConfirmarDevolucao);
 
+        // Recebe ID do operador da Intent
+        giverId = getIntent().getIntExtra("operadorId", -1);
+        if (giverId == -1) {
+            Toast.makeText(this, "Erro: ID do operador não recebido!", Toast.LENGTH_LONG).show();
+        }
+
+        // Recebe lista de tags da Intent
+        listaTags = getIntent().getStringArrayListExtra("listaTags");
+        if (listaTags != null && !listaTags.isEmpty()) {
+            for (String tag : listaTags) {
+                Log.d("FuncionariosActivity", "Tag recebida: " + tag);
+            }
+        } else {
+            Log.d("FuncionariosActivity", "Nenhuma tag recebida");
+            listaTags = new ArrayList<>();
+        }
+
+        // Recupera configurações
         SharedPreferences prefs = getSharedPreferences("SetupPrefs", MODE_PRIVATE);
         baseUrl = prefs.getString("baseUrl", "");
         serial = prefs.getString("serial", "");
 
+        // Carrega lista de funcionários
         buscarFuncionarios();
 
+        // Clique em item da lista
         lvFuncionarios.setOnItemClickListener((parent, view, position, id) -> {
             int funcionarioId = idsFuncionarios.get(position);
             if (selecionados.contains(funcionarioId)) {
@@ -83,6 +89,7 @@ public class FuncionariosActivity extends AppCompatActivity {
                 selecionados.add(funcionarioId);
             }
             txtFuncionariosSelecionados.setText("IDs selecionados: " + selecionados.toString());
+            ((ArrayAdapter) lvFuncionarios.getAdapter()).notifyDataSetChanged();
         });
 
         btnConfirmarEntrega.setOnClickListener(v -> {
@@ -102,44 +109,11 @@ public class FuncionariosActivity extends AppCompatActivity {
         });
     }
 
-    private class FuncionarioAdapter extends ArrayAdapter<String> {
-        private final ArrayList<String> lista;
-        private final ArrayList<Integer> ids;
-
-        public FuncionarioAdapter(ArrayList<String> lista, ArrayList<Integer> ids) {
-            super(FuncionariosActivity.this, 0, lista);
-            this.lista = lista;
-            this.ids = ids;
-        }
-
-        @Override
-        public View getView(int position, View convertView, ViewGroup parent) {
-            if (convertView == null) {
-                convertView = getLayoutInflater().inflate(R.layout.item_funcionario, parent, false);
-            }
-
-            ImageView img = convertView.findViewById(R.id.imgFuncionario);
-            TextView txt = convertView.findViewById(R.id.txtInfoFuncionario);
-
-            txt.setText(lista.get(position));
-
-            int funcionarioId = ids.get(position);
-            if (selecionados.contains(funcionarioId)) {
-                convertView.setBackgroundColor(0xFFE0F7FA); // azul claro se selecionado
-            } else {
-                convertView.setBackgroundColor(0x00000000); // transparente se não
-            }
-
-            img.setImageResource(R.drawable.ic_soldado); // ícone padrão, pode trocar por dinâmico
-            return convertView;
-        }
-    }
     private void buscarFuncionarios() {
         new Thread(() -> {
             try {
                 String urlString = baseUrl + "/api/v1/check_operator_access?serial=" + serial + "&only_operators=false";
-                URL url = new URL(urlString);
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                HttpURLConnection conn = (HttpURLConnection) new URL(urlString).openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("Content-Type", "application/json");
                 int responseCode = conn.getResponseCode();
@@ -182,59 +156,78 @@ public class FuncionariosActivity extends AppCompatActivity {
     }
 
     private void atualizarListaFuncionarios(ArrayList<String> listaFuncionarios) {
-        FuncionarioAdapter adapter = new FuncionarioAdapter(listaFuncionarios, idsFuncionarios);
+        ArrayAdapter<String> adapter = new FuncionarioAdapter(listaFuncionarios, idsFuncionarios);
         lvFuncionarios.setAdapter(adapter);
-        lvFuncionarios.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+    }
 
-        lvFuncionarios.setOnItemClickListener((parent, view, position, id) -> {
-            int funcionarioId = idsFuncionarios.get(position);
-            if (selecionados.contains(funcionarioId)) {
-                selecionados.remove((Integer) funcionarioId);
-            } else {
-                selecionados.add(funcionarioId);
+    private class FuncionarioAdapter extends ArrayAdapter<String> {
+        private final ArrayList<String> lista;
+        private final ArrayList<Integer> ids;
+
+        public FuncionarioAdapter(ArrayList<String> lista, ArrayList<Integer> ids) {
+            super(FuncionariosActivity.this, 0, lista);
+            this.lista = lista;
+            this.ids = ids;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            if (convertView == null) {
+                convertView = getLayoutInflater().inflate(R.layout.item_funcionario, parent, false);
             }
-            txtFuncionariosSelecionados.setText("IDs selecionados: " + selecionados.toString());
-            adapter.notifyDataSetChanged(); // atualiza cor de fundo
-        });
+
+            ImageView img = convertView.findViewById(R.id.imgFuncionario);
+            TextView txt = convertView.findViewById(R.id.txtInfoFuncionario);
+
+            txt.setText(lista.get(position));
+            int funcionarioId = ids.get(position);
+            convertView.setBackgroundColor(selecionados.contains(funcionarioId) ? 0xFFE0F7FA : 0x00000000);
+            img.setImageResource(R.drawable.ic_soldado);
+
+            return convertView;
+        }
     }
 
     private void enviarRequisicoes(String actionType) {
-        // Puxa a lista de tags global
-        List<String> listaTags = AppData.listaTagsSucesso;
-
         if (listaTags == null || listaTags.isEmpty()) {
-            Toast.makeText(this, "Lista de tags vazia ou nula!", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Lista de tags vazia!", Toast.LENGTH_LONG).show();
             return;
         }
 
-        Toast.makeText(this,
-                "Enviando " + listaTags.size() + " tags para " + selecionados.size() + " funcionários.",
-                Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Enviando " + listaTags.size() + " tags para " + selecionados.size() + " funcionários.", Toast.LENGTH_SHORT).show();
 
-        int delay = 0; // tempo inicial
-        for (String tag : listaTags) { // agora percorre todas as tags
-            for (int receiverId : selecionados) { // para cada funcionário
+        int totalEnvios = listaTags.size() * selecionados.size();
+        final int[] enviosConcluidos = {0}; // contador para rastrear envios
+
+        int delay = 0;
+        for (String tag : listaTags) {
+            for (int receiverId : selecionados) {
                 final int id = receiverId;
                 final String tagAtual = tag;
 
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    Toast.makeText(this,
-                            "Tag: " + tagAtual +
-                                    " | Serial: " + serial +
-                                    " | ID do Entregador: " + giverId +
-                                    " | ID do Recebedor: " + id +
-                                    " | Ação: " + actionType,
-                            Toast.LENGTH_SHORT).show();
+                    Log.d("FuncionariosActivity", "Enviando tag: " + tagAtual + " para ID: " + id + " | Ação: " + actionType);
+
+                    // Incrementa contador
+                    enviosConcluidos[0]++;
+
+                    // Se todos os envios concluídos, mostra popup
+                    if (enviosConcluidos[0] >= totalEnvios) {
+                        runOnUiThread(() -> {
+                            new androidx.appcompat.app.AlertDialog.Builder(FuncionariosActivity.this)
+                                    .setTitle("Sucesso")
+                                    .setMessage("Todas as tags foram " + (actionType.equals("entregar") ? "entregues" : "devolvidas") + " com sucesso!")
+                                    .setPositiveButton("OK", null)
+                                    .show();
+                        });
+                    }
                 }, delay);
 
-                delay += 2500; // espera antes do próximo envio
+                delay += 2500;
                 enviarTransacao(tagAtual, giverId, receiverId, serial, actionType);
             }
         }
     }
-
-
-
 
     private void enviarTransacao(String tagRFID, int giverId, int receiverId, String lockerSerial, String actionType) {
         new Thread(() -> {
@@ -250,11 +243,9 @@ public class FuncionariosActivity extends AppCompatActivity {
                 jsonBody.put("tagRFID", tagRFID);
 
                 if ("devolver".equals(actionType)) {
-                    // Inverte giver e receiver na devolução
                     jsonBody.put("giver_id", receiverId);
                     jsonBody.put("receiver_id", giverId);
                 } else {
-                    // Mantém normal para entregar
                     jsonBody.put("giver_id", giverId);
                     jsonBody.put("receiver_id", receiverId);
                 }
@@ -263,30 +254,14 @@ public class FuncionariosActivity extends AppCompatActivity {
                 jsonBody.put("action_type", actionType);
 
                 try (OutputStream os = conn.getOutputStream()) {
-                    byte[] input = jsonBody.toString().getBytes("utf-8");
-                    os.write(input, 0, input.length);
+                    os.write(jsonBody.toString().getBytes("utf-8"));
                 }
 
                 int responseCode = conn.getResponseCode();
-
-                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"));
-                StringBuilder response = new StringBuilder();
-                String responseLine;
-
-                while ((responseLine = br.readLine()) != null) {
-                    response.append(responseLine.trim());
-                }
-                br.close();
-
-                String acaoMensagem = actionType.equals("entregar") ? "entregue" : "devolvida";
-
-                runOnUiThread(() -> Toast.makeText(FuncionariosActivity.this,
-                        "Tag " + acaoMensagem + " com sucesso! Código: " + responseCode,
-                        Toast.LENGTH_LONG).show());
+                Log.d("FuncionariosActivity", "Transação enviada | Tag: " + tagRFID + " | Código: " + responseCode);
 
             } catch (Exception e) {
-                //runOnUiThread(() -> Toast.makeText(FuncionariosActivity.this,
-                //"Erro: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                Log.e("FuncionariosActivity", "Erro ao enviar transação: " + e.getMessage());
             }
         }).start();
     }

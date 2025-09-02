@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -34,22 +35,39 @@ public class OperadoresActivity extends AppCompatActivity {
     private final ArrayList<Integer> idsOperadores = new ArrayList<>();
     private final ArrayList<String> nomesCompleto = new ArrayList<>();
 
+    private ArrayList<String> tagsRecebidas; // <- variável de instância
+    private String acao;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_operadores);
 
         inicializarViews();
+
+        // Recebe dados da Intent
+        tagsRecebidas = getIntent().getStringArrayListExtra("tagsSelecionadas"); // mesma chave
+        String acao = getIntent().getStringExtra("acao");
+
+        // Log para depuração
+        if (tagsRecebidas != null) {
+            for (String tag : tagsRecebidas) {
+                Log.d("OperadoresActivity", "Tag recebida no onCreate: " + tag);
+            }
+        } else {
+            Log.d("OperadoresActivity", "Nenhuma tag recebida no onCreate");
+            tagsRecebidas = new ArrayList<>(); // garante lista não nula
+        }
+        Log.d("OperadoresActivity", "Ação recebida no onCreate: " + acao);
+
         carregarDadosIniciais();
     }
 
-    /** Inicializa os elementos da tela */
     private void inicializarViews() {
         lvOperadores = findViewById(R.id.lvOperadores);
         txtOperadorSelecionado = findViewById(R.id.txtOperadorSelecionado);
     }
 
-    /** Recupera configurações iniciais e inicia a busca de operadores */
     private void carregarDadosIniciais() {
         SharedPreferences prefs = getSharedPreferences("SetupPrefs", MODE_PRIVATE);
         String baseUrl = prefs.getString("baseUrl", "");
@@ -57,7 +75,6 @@ public class OperadoresActivity extends AppCompatActivity {
         buscarOperadores(baseUrl, serial);
     }
 
-    /** Busca operadores via API em thread separada */
     private void buscarOperadores(String baseUrl, String serial) {
         new Thread(() -> {
             try {
@@ -78,7 +95,6 @@ public class OperadoresActivity extends AppCompatActivity {
         }).start();
     }
 
-    /** Lê a resposta da conexão HTTP */
     private String lerResposta(HttpURLConnection conn) throws Exception {
         BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
         StringBuilder response = new StringBuilder();
@@ -88,7 +104,6 @@ public class OperadoresActivity extends AppCompatActivity {
         return response.toString();
     }
 
-    /** Processa os dados retornados pela API e popula listas */
     private void processarResposta(String respostaJson) {
         try {
             JSONObject jsonResponse = new JSONObject(respostaJson);
@@ -120,7 +135,6 @@ public class OperadoresActivity extends AppCompatActivity {
         }
     }
 
-    /** Atualiza a ListView com os operadores */
     private void atualizarLista(ArrayList<String> listaOperadores) {
         OperadorAdapter adapter = new OperadorAdapter(this, listaOperadores);
         lvOperadores.setAdapter(adapter);
@@ -132,29 +146,30 @@ public class OperadoresActivity extends AppCompatActivity {
             txtOperadorSelecionado.setText("Selecionado: " + nome + " (ID: " + operadorId + ")");
             salvarOperadorSelecionado(operadorId);
 
-            // Passa lista de tags recebida via Intent
-            ArrayList<String> listaTags = getIntent().getStringArrayListExtra("listaTags");
+            // Log do envio
+            Log.d("OperadoresActivity", "Enviando para FuncionariosActivity operadorId: " + operadorId);
+            Log.d("OperadoresActivity", "Enviando listaTags: " + tagsRecebidas);
 
+            // Cria Intent e envia para FuncionariosActivity
             Intent intent = new Intent(OperadoresActivity.this, FuncionariosActivity.class);
             intent.putExtra("operadorId", operadorId);
-            intent.putStringArrayListExtra("listaTags", listaTags);
+            intent.putStringArrayListExtra("listaTags", tagsRecebidas); // passa a mesma lista que recebeu
             startActivity(intent);
+
+            Log.d("OperadoresActivity", "Enviando listaTags para FuncionariosActivity: " + tagsRecebidas);
         });
     }
 
-    /** Salva operador selecionado em SharedPreferences */
     private void salvarOperadorSelecionado(int operadorId) {
         SharedPreferences.Editor editor = getSharedPreferences("SetupPrefs", MODE_PRIVATE).edit();
         editor.putInt("operadorSelecionadoId", operadorId);
         editor.apply();
     }
 
-    /** Exibe erro na interface */
     private void mostrarErro(String mensagem) {
         runOnUiThread(() -> txtOperadorSelecionado.setText(mensagem));
     }
 
-    /** Adapter customizado para exibir operador com avatar */
     private static class OperadorAdapter extends ArrayAdapter<String> {
 
         private final Context context;
@@ -178,7 +193,7 @@ public class OperadoresActivity extends AppCompatActivity {
             TextView txtInfo = convertView.findViewById(R.id.txtInfo);
 
             txtInfo.setText(listaOperadores.get(position));
-            imgAvatar.setImageResource(R.drawable.ic_soldado); // Avatar fixo, pode ser dinâmico
+            imgAvatar.setImageResource(R.drawable.ic_soldado);
 
             return convertView;
         }
