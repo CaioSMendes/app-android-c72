@@ -62,10 +62,26 @@ public class FuncionariosActivity extends AppCompatActivity {
         }
 
         // Recebe lista de tags da Intent
+        acao = getIntent().getStringExtra("acao");
         listaTags = getIntent().getStringArrayListExtra("listaTags");
+        // Esconde/mostra os botões de acordo com a ação
+        if ("entrega".equalsIgnoreCase(acao)) {
+            btnConfirmarDevolucao.setVisibility(View.GONE); // esconde devolução
+            btnConfirmarEntrega.setVisibility(View.VISIBLE); // mostra entrega
+        } else if ("retirada".equalsIgnoreCase(acao)) {
+            btnConfirmarEntrega.setVisibility(View.GONE); // esconde entrega
+            btnConfirmarDevolucao.setVisibility(View.VISIBLE); // mostra devolução
+        } else {
+            // Se não vier nada ou vier inválido, esconde ambos (evita erro)
+            btnConfirmarEntrega.setVisibility(View.GONE);
+            btnConfirmarDevolucao.setVisibility(View.GONE);
+            Log.w("FuncionariosActivity", "Ação inválida recebida: " + acao);
+        }
+
         if (listaTags != null && !listaTags.isEmpty()) {
             for (String tag : listaTags) {
                 Log.d("FuncionariosActivity", "Tag recebida: " + tag);
+                Log.d("FuncionariosActivity", "Ação recebida: " + acao);
             }
         } else {
             Log.d("FuncionariosActivity", "Nenhuma tag recebida");
@@ -197,40 +213,46 @@ public class FuncionariosActivity extends AppCompatActivity {
         Toast.makeText(this, "Enviando " + listaTags.size() + " tags para " + selecionados.size() + " funcionários.", Toast.LENGTH_SHORT).show();
 
         int totalEnvios = listaTags.size() * selecionados.size();
-        final int[] enviosConcluidos = {0}; // contador para rastrear envios
+        final int[] enviosConcluidos = {0};
+        final int[] sucesso = {0};
+        final int[] falha = {0};
 
-        int delay = 0;
         for (String tag : listaTags) {
             for (int receiverId : selecionados) {
                 final int id = receiverId;
                 final String tagAtual = tag;
 
-                new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    Log.d("FuncionariosActivity", "Enviando tag: " + tagAtual + " para ID: " + id + " | Ação: " + actionType);
-
-                    // Incrementa contador
+                enviarTransacao(tagAtual, giverId, receiverId, serial, actionType, result -> {
+                    // Callback com resultado
                     enviosConcluidos[0]++;
+                    if (result) sucesso[0]++;
+                    else falha[0]++;
 
-                    // Se todos os envios concluídos, mostra popup
                     if (enviosConcluidos[0] >= totalEnvios) {
+                        // Todas operações concluídas
                         runOnUiThread(() -> {
                             new androidx.appcompat.app.AlertDialog.Builder(FuncionariosActivity.this)
-                                    .setTitle("Sucesso")
-                                    .setMessage("Todas as tags foram " + (actionType.equals("entregar") ? "entregues" : "devolvidas") + " com sucesso!")
-                                    .setPositiveButton("OK", null)
+                                    .setTitle("Resultado da Operação")
+                                    .setMessage("Operação finalizada!\n\n" +
+                                            "Sucesso: " + sucesso[0] + "\n" +
+                                            "Falha: " + falha[0])
+                                    .setPositiveButton("OK", (dialog, which) -> {
+                                        // Volta para a activity de leitura
+                                        finish();
+                                    })
+                                    .setCancelable(false)
                                     .show();
                         });
                     }
-                }, delay);
-
-                delay += 2500;
-                enviarTransacao(tagAtual, giverId, receiverId, serial, actionType);
+                });
             }
         }
     }
 
-    private void enviarTransacao(String tagRFID, int giverId, int receiverId, String lockerSerial, String actionType) {
+    private void enviarTransacao(String tagRFID, int giverId, int receiverId, String lockerSerial, String actionType, java.util.function.Consumer<Boolean> callback) {
         new Thread(() -> {
+            boolean sucessoEnvio = false;
+
             try {
                 URL url = new URL(baseUrl + "/api/v1/keylocker_transactions");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -254,14 +276,28 @@ public class FuncionariosActivity extends AppCompatActivity {
                 jsonBody.put("action_type", actionType);
 
                 try (OutputStream os = conn.getOutputStream()) {
-                    os.write(jsonBody.toString().getBytes("utf-8"));
+                    byte[] input = jsonBody.toString().getBytes("utf-8");
+                    os.write(input, 0, input.length);
                 }
 
                 int responseCode = conn.getResponseCode();
-                Log.d("FuncionariosActivity", "Transação enviada | Tag: " + tagRFID + " | Código: " + responseCode);
+
+                if (responseCode >= 200 && responseCode < 300) {
+                    sucessoEnvio = true;
+                }
+
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"));
+                StringBuilder response = new StringBuilder();
+                String responseLine;
+                while ((responseLine = br.readLine()) != null) response.append(responseLine.trim());
+                br.close();
+
+                Log.d("FuncionariosActivity", "Tag " + tagRFID + " enviada para " + receiverId + " | Código: " + responseCode);
 
             } catch (Exception e) {
-                Log.e("FuncionariosActivity", "Erro ao enviar transação: " + e.getMessage());
+                Log.e("FuncionariosActivity", "Erro ao enviar tag " + tagRFID + ": " + e.getMessage());
+            } finally {
+                if (callback != null) callback.accept(sucessoEnvio);
             }
         }).start();
     }

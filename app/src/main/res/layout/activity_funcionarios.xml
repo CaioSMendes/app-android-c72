@@ -61,16 +61,18 @@
         android:textColor="@android:color/white"
         android:padding="14dp"
         android:layout_marginBottom="8dp"
+        android:drawableStart="@drawable/ic_entrega"
         android:background="@drawable/btn_rounded"/>
 
     <Button
         android:id="@+id/btnConfirmarDevolucao"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Confirmar Devolução"
+        android:text="Confirmar Retirada"
         android:textAllCaps="false"
         android:backgroundTint="#ff6400"
         android:textColor="@android:color/white"
         android:padding="14dp"
-        android:background="@drawable/btn_rounded"/>
+        android:background="@drawable/btn_rounded"
+        android:drawableStart="@drawable/ic_retirada"/>
 </LinearLayout>

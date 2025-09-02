@@ -47,7 +47,7 @@ public class OperadoresActivity extends AppCompatActivity {
 
         // Recebe dados da Intent
         tagsRecebidas = getIntent().getStringArrayListExtra("tagsSelecionadas"); // mesma chave
-        String acao = getIntent().getStringExtra("acao");
+        acao = getIntent().getStringExtra("acao"); // agora usa a variável da classe
 
         // Log para depuração
         if (tagsRecebidas != null) {
@@ -153,10 +153,13 @@ public class OperadoresActivity extends AppCompatActivity {
             // Cria Intent e envia para FuncionariosActivity
             Intent intent = new Intent(OperadoresActivity.this, FuncionariosActivity.class);
             intent.putExtra("operadorId", operadorId);
+            intent.putExtra("acao", acao);
             intent.putStringArrayListExtra("listaTags", tagsRecebidas); // passa a mesma lista que recebeu
             startActivity(intent);
 
+            Log.d("OperadoresActivity", "Enviando operadorId: " + operadorId);
             Log.d("OperadoresActivity", "Enviando listaTags para FuncionariosActivity: " + tagsRecebidas);
+            Log.d("OperadoresActivity", "Enviando ação para FuncionariosActivity: " + acao);
         });
     }
 

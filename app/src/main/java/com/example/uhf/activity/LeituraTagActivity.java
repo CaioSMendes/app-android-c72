@@ -321,7 +321,7 @@ public class LeituraTagActivity extends AppCompatActivity {
         }
 
         isReading = true;
-        txtInventory.setText("Parar Leitura");
+        txtInventory.setText("Parar \nLeitura");
         tagsLidas.clear();
         listaTagItems.clear();
         tagItemAdapter.notifyDataSetChanged();
