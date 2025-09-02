@@ -3,28 +3,65 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:background="#FAFAFA">
 
-    <TextView
-        android:id="@+id/txtTitulo"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Selecione um Armeiro"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="12dp"/>
-
-    <ListView
-        android:id="@+id/lvOperadores"
+    <!-- Barra de título -->
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="56dp"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:background="#ff6400">
 
-    <TextView
-        android:id="@+id/txtOperadorSelecionado"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="14sp"
-        android:layout_marginTop="24dp"/>
+        <TextView
+            android:id="@+id/txtTitulo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Selecione um Armeiro"
+            android:textColor="@android:color/white"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_centerVertical="true"
+            android:layout_alignParentStart="true"
+            android:drawableStart="@drawable/ic_soldado"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical" />
+    </RelativeLayout>
 
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Lista de Operadores -->
+            <ListView
+                android:id="@+id/lvOperadores"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:divider="@android:color/darker_gray"
+                android:dividerHeight="1dp"
+                android:choiceMode="singleChoice"
+                android:layout_marginBottom="12dp"
+                android:background="@android:color/white"
+                android:padding="8dp" />
+
+            <!-- Operador Selecionado -->
+            <TextView
+                android:id="@+id/txtOperadorSelecionado"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Nenhum armeiro selecionado"
+                android:textSize="14sp"
+                android:padding="12dp"
+                android:background="#333333"
+                android:textColor="@android:color/white"
+                android:layout_marginTop="24dp" />
+
+        </LinearLayout>
+    </ScrollView>
 </LinearLayout>

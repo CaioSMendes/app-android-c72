@@ -4,8 +4,11 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -99,6 +102,38 @@ public class FuncionariosActivity extends AppCompatActivity {
         });
     }
 
+    private class FuncionarioAdapter extends ArrayAdapter<String> {
+        private final ArrayList<String> lista;
+        private final ArrayList<Integer> ids;
+
+        public FuncionarioAdapter(ArrayList<String> lista, ArrayList<Integer> ids) {
+            super(FuncionariosActivity.this, 0, lista);
+            this.lista = lista;
+            this.ids = ids;
+        }
+
+        @Override
+        public View getView(int position, View convertView, ViewGroup parent) {
+            if (convertView == null) {
+                convertView = getLayoutInflater().inflate(R.layout.item_funcionario, parent, false);
+            }
+
+            ImageView img = convertView.findViewById(R.id.imgFuncionario);
+            TextView txt = convertView.findViewById(R.id.txtInfoFuncionario);
+
+            txt.setText(lista.get(position));
+
+            int funcionarioId = ids.get(position);
+            if (selecionados.contains(funcionarioId)) {
+                convertView.setBackgroundColor(0xFFE0F7FA); // azul claro se selecionado
+            } else {
+                convertView.setBackgroundColor(0x00000000); // transparente se não
+            }
+
+            img.setImageResource(R.drawable.ic_soldado); // ícone padrão, pode trocar por dinâmico
+            return convertView;
+        }
+    }
     private void buscarFuncionarios() {
         new Thread(() -> {
             try {
@@ -147,11 +182,20 @@ public class FuncionariosActivity extends AppCompatActivity {
     }
 
     private void atualizarListaFuncionarios(ArrayList<String> listaFuncionarios) {
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(this,
-                android.R.layout.simple_list_item_multiple_choice,
-                listaFuncionarios);
+        FuncionarioAdapter adapter = new FuncionarioAdapter(listaFuncionarios, idsFuncionarios);
         lvFuncionarios.setAdapter(adapter);
         lvFuncionarios.setChoiceMode(ListView.CHOICE_MODE_MULTIPLE);
+
+        lvFuncionarios.setOnItemClickListener((parent, view, position, id) -> {
+            int funcionarioId = idsFuncionarios.get(position);
+            if (selecionados.contains(funcionarioId)) {
+                selecionados.remove((Integer) funcionarioId);
+            } else {
+                selecionados.add(funcionarioId);
+            }
+            txtFuncionariosSelecionados.setText("IDs selecionados: " + selecionados.toString());
+            adapter.notifyDataSetChanged(); // atualiza cor de fundo
+        });
     }
 
     private void enviarRequisicoes(String actionType) {
@@ -188,6 +232,8 @@ public class FuncionariosActivity extends AppCompatActivity {
             }
         }
     }
+
+
 
 
     private void enviarTransacao(String tagRFID, int giverId, int receiverId, String lockerSerial, String actionType) {
@@ -240,7 +286,7 @@ public class FuncionariosActivity extends AppCompatActivity {
 
             } catch (Exception e) {
                 //runOnUiThread(() -> Toast.makeText(FuncionariosActivity.this,
-                        //"Erro: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                //"Erro: " + e.getMessage(), Toast.LENGTH_LONG).show());
             }
         }).start();
     }

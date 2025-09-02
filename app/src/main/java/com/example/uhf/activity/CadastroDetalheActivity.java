@@ -164,7 +164,7 @@ public class CadastroDetalheActivity extends AppCompatActivity {
                         Log.e("CadastroDetalhe", "Erro inesperado", e);
                     }
                 });
-                
+
             } catch (Exception e) {
                 runOnUiThread(() -> Toast.makeText(this,
                         "Erro: " + e.getMessage(), Toast.LENGTH_LONG).show());

@@ -236,11 +236,39 @@ public class LeituraTagActivity extends AppCompatActivity {
 
             } else if ("retirada".equalsIgnoreCase(acao)) {
                 btnAcaoDefault.setOnClickListener(v -> {
-                    // processarRetiradaSelecionadas();
+                    ArrayList<String> tagsSelecionadas = new ArrayList<>();
+                    for (TagItem item : listaTagItems) {
+                        if (item.isSelecionado()) {
+                            tagsSelecionadas.add(item.tagRFID);
+                        }
+                    }
+
+                    if (!tagsSelecionadas.isEmpty()) {
+                        Intent intent = new Intent(this, OperadoresActivity.class);
+                        intent.putStringArrayListExtra("tagsSelecionadas", tagsSelecionadas);
+                        intent.putExtra("acao", acao); // Passa a ação
+                        startActivity(intent);
+                    } else {
+                        Toast.makeText(this, "Nenhuma tag selecionada!", Toast.LENGTH_SHORT).show();
+                    }
                 });
             } else if ("entrega".equalsIgnoreCase(acao)) {
                 btnAcaoDefault.setOnClickListener(v -> {
-                    // processarEntregaSelecionadas();
+                    ArrayList<String> tagsSelecionadas = new ArrayList<>();
+                    for (TagItem item : listaTagItems) {
+                        if (item.isSelecionado()) {
+                            tagsSelecionadas.add(item.tagRFID);
+                        }
+                    }
+
+                    if (!tagsSelecionadas.isEmpty()) {
+                        Intent intent = new Intent(this, OperadoresActivity.class);
+                        intent.putStringArrayListExtra("tagsSelecionadas", tagsSelecionadas);
+                        intent.putExtra("acao", acao); // Passa a ação
+                        startActivity(intent);
+                    } else {
+                        Toast.makeText(this, "Nenhuma tag selecionada!", Toast.LENGTH_SHORT).show();
+                    }
                 });
             }
 
