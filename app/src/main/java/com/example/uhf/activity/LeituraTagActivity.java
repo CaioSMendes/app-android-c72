@@ -14,9 +14,9 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -44,19 +44,20 @@ public class LeituraTagActivity extends AppCompatActivity {
 
     private static final String TAG_LOG = "LeituraTag";
 
-    // Views
-    private Button btnInventory, btnClearTags, btnAcaoDefault;
-    private TextView tvTagCount;
+    // Botões como LinearLayout
+    private LinearLayout btnInventory, btnClearTags, btnAcaoDefault;
+    private TextView txtInventory, btnAcaoText, tvTagCount;
+    private ImageView btnAcaoIcon;
     private ListView lvTags;
     private CheckBox cbFilter;
-    private Button rbSingle, rbLoop;
+    private TextView rbSingle, rbLoop;
 
     // RFID
     private RFIDWithUHFUART mReader;
     private boolean isReading = false;
-    private boolean modoSingle = false; // Loop padrão
+    private boolean modoSingle = false;
 
-    // Listas de tags
+    // Listas
     private Set<String> tagsLidas = new HashSet<>();
     private List<TagItem> listaTagItems = new ArrayList<>();
     private List<String> tagsEncontradas = new ArrayList<>();
@@ -64,17 +65,14 @@ public class LeituraTagActivity extends AppCompatActivity {
     private List<String> objetosEncontrados = new ArrayList<>();
     private List<String> idsInternosEncontrados = new ArrayList<>();
 
-    // Adapters
     private TagItemAdapter tagItemAdapter;
 
-    // Handlers e Threads
     private Handler handler = new Handler();
     private Runnable leituraRunnable;
     private ToneGenerator toneGen;
     private HandlerThread readerThread;
     private Handler readerHandler;
 
-    // Ação recebida da Intent
     private String acao;
 
     @Override
@@ -82,7 +80,6 @@ public class LeituraTagActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_leitura_tag);
 
-        // Recupera a ação da Intent
         acao = getIntent().getStringExtra("acao");
         Log.d(TAG_LOG, "Ação recebida: " + acao);
 
@@ -92,11 +89,18 @@ public class LeituraTagActivity extends AppCompatActivity {
         inicializarLeitorRFID();
     }
 
-    /** Inicializa todas as views da Activity */
     private void inicializarViews() {
+        // LinearLayouts como botões
         btnInventory = findViewById(R.id.btnStartInventory);
         btnClearTags = findViewById(R.id.btnClearTags);
         btnAcaoDefault = findViewById(R.id.btnAcaoDefault);
+
+        // Elementos internos dos botões
+        txtInventory = btnInventory.findViewById(R.id.txtInventory);
+        btnAcaoText = btnAcaoDefault.findViewById(R.id.btnAcaoText);
+        btnAcaoIcon = btnAcaoDefault.findViewById(R.id.btnAcaoIcon);
+
+        // Outros elementos
         tvTagCount = findViewById(R.id.tvTagCount);
         lvTags = findViewById(R.id.lvTags);
         cbFilter = findViewById(R.id.cbFilter);
@@ -117,31 +121,24 @@ public class LeituraTagActivity extends AppCompatActivity {
         rbLoop.setOnClickListener(v -> modoSingle = false);
     }
 
-    /** Configura o adapter e seleção da ListView */
     private void configurarAdapters() {
         tagItemAdapter = new TagItemAdapter(this, listaTagItems);
         lvTags.setAdapter(tagItemAdapter);
 
-        // Listener para atualizar botão quando seleção muda
         tagItemAdapter.setOnItemSelectedListener(this::atualizarVisibilidadeBotaoAcao);
     }
 
-    /** Configura os botões da tela */
     private void configurarBotoes() {
-        // Iniciar / Parar leitura
         btnInventory.setOnClickListener(v -> {
             if (!isReading) iniciarLeitura();
             else pararLeitura();
         });
 
-        // Limpar tags lidas
         btnClearTags.setOnClickListener(v -> limparLeitura());
 
-        // Botão de ação confirma seleção
         btnAcaoDefault.setOnClickListener(v -> confirmarSelecao());
     }
 
-    /** Inicializa o leitor RFID em thread separada */
     private void inicializarLeitorRFID() {
         readerThread = new HandlerThread("RFIDReaderThread");
         readerThread.start();
@@ -149,7 +146,6 @@ public class LeituraTagActivity extends AppCompatActivity {
         readerHandler.post(this::inicializarLeitor);
     }
 
-    /** Inicializa o leitor RFID */
     private void inicializarLeitor() {
         try {
             mReader = RFIDWithUHFUART.getInstance();
@@ -170,7 +166,6 @@ public class LeituraTagActivity extends AppCompatActivity {
         }
     }
 
-    /** Atualiza visibilidade do botão de ação conforme seleção */
     private void atualizarVisibilidadeBotaoAcao() {
         boolean algumSelecionado = false;
         for (TagItem item : listaTagItems) {
@@ -181,46 +176,32 @@ public class LeituraTagActivity extends AppCompatActivity {
         }
 
         if (algumSelecionado) {
-            // Define o texto do botão de acordo com a ação
             String textoBotao;
             int iconeRes;
 
             switch (acao) {
-                case "retirada":
-                    textoBotao = "Confirmar Retirada";
-                    iconeRes = R.drawable.ic_retirada;
-                    break;
-                case "entrega":
-                    textoBotao = "Confirmar Entrega";
-                    iconeRes = R.drawable.ic_entrega;
-                    break;
-                case "cadastro":
-                    textoBotao = "Confirmar Cadastro";
-                    iconeRes = R.drawable.ic_cadastro;
-                    break;
-                default:
-                    textoBotao = "Confirmar";
-                    iconeRes = 0;
+                case "retirada": textoBotao = "Confirmar Retirada"; iconeRes = R.drawable.ic_retirada; break;
+                case "entrega": textoBotao = "Confirmar Entrega"; iconeRes = R.drawable.ic_entrega; break;
+                case "cadastro": textoBotao = "Confirmar Cadastro"; iconeRes = R.drawable.ic_cadastro; break;
+                default: textoBotao = "Confirmar"; iconeRes = 0;
             }
 
-            btnAcaoDefault.setText(textoBotao);
+            btnAcaoText.setText(textoBotao);
 
-            // Adiciona o ícone à esquerda do texto
             if (iconeRes != 0) {
-                btnAcaoDefault.setCompoundDrawablesWithIntrinsicBounds(iconeRes, 0, 0, 0);
-                btnAcaoDefault.setCompoundDrawablePadding(16); // espaço entre ícone e texto
+                btnAcaoIcon.setImageResource(iconeRes);
+                btnAcaoIcon.setVisibility(View.VISIBLE);
+            } else {
+                btnAcaoIcon.setVisibility(View.GONE);
             }
 
             btnAcaoDefault.setVisibility(View.VISIBLE);
-            btnInventory.setVisibility(View.VISIBLE);
-            btnClearTags.setVisibility(View.VISIBLE);
-
+            txtInventory.setText(isReading ? "Parar Leitura" : "Iniciar Leitura");
         } else {
             btnAcaoDefault.setVisibility(View.GONE);
         }
     }
 
-    /** Confirma os itens selecionados */
     private void confirmarSelecao() {
         ArrayList<String> selecionadosRFID = new ArrayList<>();
         ArrayList<String> selecionadosID = new ArrayList<>();
@@ -235,13 +216,9 @@ public class LeituraTagActivity extends AppCompatActivity {
         }
 
         Log.d(TAG_LOG, "Tags RFID selecionadas: " + selecionadosRFID);
-        Log.d(TAG_LOG, "IDs Internos selecionados: " + selecionadosID);
-        Log.d(TAG_LOG, "Objetos selecionados: " + selecionadosObjeto);
-
         Toast.makeText(this, "Itens selecionados: " + selecionadosRFID.size(), Toast.LENGTH_SHORT).show();
     }
 
-    /** Limpa todas as listas e reseta a interface */
     private void limparLeitura() {
         if (isReading) pararLeitura();
 
@@ -255,10 +232,9 @@ public class LeituraTagActivity extends AppCompatActivity {
         tagItemAdapter.notifyDataSetChanged();
         tvTagCount.setText("0");
         lvTags.setSelection(0);
-        btnInventory.setText("Iniciar Leitura");
+        txtInventory.setText("Iniciar Leitura");
     }
 
-    /** Inicia leitura RFID */
     private void iniciarLeitura() {
         if (mReader == null) {
             Toast.makeText(this, "Leitor ainda não inicializado!", Toast.LENGTH_SHORT).show();
@@ -266,7 +242,7 @@ public class LeituraTagActivity extends AppCompatActivity {
         }
 
         isReading = true;
-        btnInventory.setText("Parar Leitura");
+        txtInventory.setText("Parar Leitura");
         tagsLidas.clear();
         listaTagItems.clear();
         tagItemAdapter.notifyDataSetChanged();
@@ -278,7 +254,7 @@ public class LeituraTagActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         Toast.makeText(this, "Falha ao iniciar inventário.", Toast.LENGTH_SHORT).show();
                         isReading = false;
-                        btnInventory.setText("Iniciar Leitura");
+                        txtInventory.setText("Iniciar Leitura");
                     });
                     return;
                 }
@@ -308,10 +284,9 @@ public class LeituraTagActivity extends AppCompatActivity {
         handler.post(leituraRunnable);
     }
 
-    /** Para leitura RFID */
     private void pararLeitura() {
         isReading = false;
-        btnInventory.setText("Iniciar Leitura");
+        txtInventory.setText("Iniciar Leitura");
         handler.removeCallbacks(leituraRunnable);
         readerHandler.post(() -> {
             try { if (mReader != null) mReader.stopInventory(); }
@@ -416,8 +391,6 @@ public class LeituraTagActivity extends AppCompatActivity {
         }).start();
     }
 
-
-    /** Captura evento de trigger físico */
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         int triggerKeyCode = 293;
@@ -445,7 +418,7 @@ public class LeituraTagActivity extends AppCompatActivity {
         if (readerThread != null) readerThread.quitSafely();
     }
 
-    /** Adapter customizado para ListView de tags */
+    /** Adapter customizado */
     private static class TagItemAdapter extends BaseAdapter {
         private final List<TagItem> items;
         private final LayoutInflater inflater;
@@ -477,15 +450,11 @@ public class LeituraTagActivity extends AppCompatActivity {
             } else holder = (ViewHolder) convertView.getTag();
 
             TagItem item = items.get(position);
-
-            // Mostra apenas os 6 primeiros dígitos na tela
             String tagExibir = item.tagRFID.length() >= 6 ? item.tagRFID.substring(0, 6) : item.tagRFID;
             holder.tvTag.setText(tagExibir);
-
             holder.tvObjeto.setText(item.objeto);
             holder.tvIdInterno.setText(item.idInterno);
             holder.imgTag.setImageResource(R.drawable.tagrfid);
-
             convertView.setBackgroundColor(item.isSelecionado() ? Color.parseColor("#CCCCCC") : Color.TRANSPARENT);
 
             convertView.setOnClickListener(v -> {
@@ -497,27 +466,17 @@ public class LeituraTagActivity extends AppCompatActivity {
             return convertView;
         }
 
-
         static class ViewHolder {
             TextView tvTag, tvObjeto, tvIdInterno;
             ImageView imgTag;
         }
     }
 
-    /** Classe de modelo para cada tag */
+    /** Modelo de tag */
     private static class TagItem {
-        private final String tagRFID;
-        private final String objeto;
-        private final String idInterno;
+        private final String tagRFID, objeto, idInterno;
         private boolean selecionado = false;
-
-        public TagItem(String tagRFID, String objeto, String idInterno) {
-            this.tagRFID = tagRFID;
-            this.objeto = objeto;
-            this.idInterno = idInterno;
-        }
-
-        public String getIdTag() { return tagRFID; }
+        public TagItem(String tagRFID, String objeto, String idInterno) { this.tagRFID = tagRFID; this.objeto = objeto; this.idInterno = idInterno; }
         public boolean isSelecionado() { return selecionado; }
         public void setSelecionado(boolean selecionado) { this.selecionado = selecionado; }
     }
