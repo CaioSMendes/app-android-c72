@@ -68,7 +68,7 @@
         android:id="@+id/btnConfirmarDevolucao"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Confirmar Retirada"
+        android:text="Confirmar Devolução"
         android:textAllCaps="false"
         android:backgroundTint="#ff6400"
         android:textColor="@android:color/white"

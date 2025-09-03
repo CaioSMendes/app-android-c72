@@ -10,6 +10,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -29,7 +30,7 @@ import java.util.ArrayList;
 
 public class OperadoresActivity extends AppCompatActivity {
 
-    private ListView lvOperadores;
+    private LinearLayout lvOperadores;
     private TextView txtOperadorSelecionado;
 
     private final ArrayList<Integer> idsOperadores = new ArrayList<>();
@@ -136,31 +137,40 @@ public class OperadoresActivity extends AppCompatActivity {
     }
 
     private void atualizarLista(ArrayList<String> listaOperadores) {
-        OperadorAdapter adapter = new OperadorAdapter(this, listaOperadores);
-        lvOperadores.setAdapter(adapter);
+        LinearLayout container = findViewById(R.id.lvOperadores);
+        LayoutInflater inflater = LayoutInflater.from(this);
 
-        lvOperadores.setOnItemClickListener((parent, view, position, id) -> {
-            int operadorId = idsOperadores.get(position);
-            String nome = nomesCompleto.get(position);
+        for (int i = 0; i < listaOperadores.size(); i++) {
+            String operadorInfo = listaOperadores.get(i);
+            int operadorId = idsOperadores.get(i);
+            String nome = nomesCompleto.get(i);
 
-            txtOperadorSelecionado.setText("Selecionado: " + nome + " (ID: " + operadorId + ")");
-            salvarOperadorSelecionado(operadorId);
+            // Infla o layout de cada item
+            View itemView = inflater.inflate(R.layout.item_operador, container, false);
 
-            // Log do envio
-            Log.d("OperadoresActivity", "Enviando para FuncionariosActivity operadorId: " + operadorId);
-            Log.d("OperadoresActivity", "Enviando listaTags: " + tagsRecebidas);
+            ImageView imgAvatar = itemView.findViewById(R.id.imgAvatar);
+            TextView txtInfo = itemView.findViewById(R.id.txtInfo);
 
-            // Cria Intent e envia para FuncionariosActivity
-            Intent intent = new Intent(OperadoresActivity.this, FuncionariosActivity.class);
-            intent.putExtra("operadorId", operadorId);
-            intent.putExtra("acao", acao);
-            intent.putStringArrayListExtra("listaTags", tagsRecebidas); // passa a mesma lista que recebeu
-            startActivity(intent);
+            txtInfo.setText(operadorInfo);
+            imgAvatar.setImageResource(R.drawable.ic_soldado);
 
+            // Clique no item
+            itemView.setOnClickListener(v -> {
+                txtOperadorSelecionado.setText("Selecionado: " + nome + " (ID: " + operadorId + ")");
+                salvarOperadorSelecionado(operadorId);
+
+                Intent intent = new Intent(OperadoresActivity.this, FuncionariosActivity.class);
+                intent.putExtra("operadorId", operadorId);
+                intent.putExtra("acao", acao);
+                intent.putStringArrayListExtra("listaTags", tagsRecebidas);
+                startActivity(intent);
+            });
             Log.d("OperadoresActivity", "Enviando operadorId: " + operadorId);
             Log.d("OperadoresActivity", "Enviando listaTags para FuncionariosActivity: " + tagsRecebidas);
             Log.d("OperadoresActivity", "Enviando ação para FuncionariosActivity: " + acao);
-        });
+            // Adiciona ao container (vai ficando um embaixo do outro)
+            container.addView(itemView);
+        }
     }
 
     private void salvarOperadorSelecionado(int operadorId) {

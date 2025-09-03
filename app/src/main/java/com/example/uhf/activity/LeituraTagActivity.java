@@ -191,7 +191,7 @@ public class LeituraTagActivity extends AppCompatActivity {
 
             switch (acao.toLowerCase()) {
                 case "retirada":
-                    textoBotao = "Confirmar Retirada";
+                    textoBotao = "Confirmar Devolução";
                     iconeRes = R.drawable.ic_retirada;
                     break;
                 case "entrega":

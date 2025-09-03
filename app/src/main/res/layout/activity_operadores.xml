@@ -38,14 +38,12 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Lista de Operadores -->
-            <ListView
+            <!-- Container de Operadores (mantendo id lvOperadores) -->
+            <LinearLayout
                 android:id="@+id/lvOperadores"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:divider="@android:color/darker_gray"
-                android:dividerHeight="1dp"
-                android:choiceMode="singleChoice"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
                 android:layout_marginBottom="12dp"
                 android:background="@android:color/white"
                 android:padding="8dp" />

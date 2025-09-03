@@ -21,11 +21,13 @@ import com.example.uhf.R;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class FuncionariosActivity extends AppCompatActivity {
@@ -216,30 +218,42 @@ public class FuncionariosActivity extends AppCompatActivity {
         final int[] enviosConcluidos = {0};
         final int[] sucesso = {0};
         final int[] falha = {0};
+        List<String> erros = Collections.synchronizedList(new ArrayList<>());
 
         for (String tag : listaTags) {
             for (int receiverId : selecionados) {
                 final int id = receiverId;
                 final String tagAtual = tag;
 
-                enviarTransacao(tagAtual, giverId, receiverId, serial, actionType, result -> {
-                    // Callback com resultado
+                enviarTransacao(tagAtual, giverId, receiverId, serial, actionType, (result, errorMsg) -> {
                     enviosConcluidos[0]++;
-                    if (result) sucesso[0]++;
-                    else falha[0]++;
+                    if (result) {
+                        sucesso[0]++;
+                    } else {
+                        falha[0]++;
+                        if (errorMsg != null && !errorMsg.isEmpty()) {
+                            erros.add("Tag " + tagAtual + ": " + errorMsg);
+                        }
+                    }
 
                     if (enviosConcluidos[0] >= totalEnvios) {
-                        // Todas operações concluídas
                         runOnUiThread(() -> {
+                            StringBuilder msgFinal = new StringBuilder();
+                            msgFinal.append("Operação finalizada!\n\n")
+                                    .append("Sucesso: ").append(sucesso[0]).append("\n")
+                                    .append("Falha: ").append(falha[0]);
+
+                            if (!erros.isEmpty()) {
+                                msgFinal.append("\n\nDetalhes dos erros:\n");
+                                for (String erro : erros) {
+                                    msgFinal.append("- ").append(erro).append("\n");
+                                }
+                            }
+
                             new androidx.appcompat.app.AlertDialog.Builder(FuncionariosActivity.this)
                                     .setTitle("Resultado da Operação")
-                                    .setMessage("Operação finalizada!\n\n" +
-                                            "Sucesso: " + sucesso[0] + "\n" +
-                                            "Falha: " + falha[0])
-                                    .setPositiveButton("OK", (dialog, which) -> {
-                                        // Volta para a activity de leitura
-                                        finish();
-                                    })
+                                    .setMessage(msgFinal.toString())
+                                    .setPositiveButton("OK", (dialog, which) -> finish())
                                     .setCancelable(false)
                                     .show();
                         });
@@ -249,9 +263,16 @@ public class FuncionariosActivity extends AppCompatActivity {
         }
     }
 
-    private void enviarTransacao(String tagRFID, int giverId, int receiverId, String lockerSerial, String actionType, java.util.function.Consumer<Boolean> callback) {
+    public interface TransacaoCallback {
+        void onResult(boolean sucesso, String mensagemErro);
+    }
+
+    private void enviarTransacao(String tagRFID, int giverId, int receiverId, String lockerSerial, String actionType,
+                                 TransacaoCallback callback) {
         new Thread(() -> {
             boolean sucessoEnvio = false;
+            String errorMsg = null;
+            StringBuilder response = new StringBuilder(); // declarado fora do try para logar sempre
 
             try {
                 URL url = new URL(baseUrl + "/api/v1/keylocker_transactions");
@@ -265,8 +286,8 @@ public class FuncionariosActivity extends AppCompatActivity {
                 jsonBody.put("tagRFID", tagRFID);
 
                 if ("devolver".equals(actionType)) {
-                    jsonBody.put("giver_id", receiverId);
                     jsonBody.put("receiver_id", giverId);
+                    jsonBody.put("giver_id", receiverId);
                 } else {
                     jsonBody.put("giver_id", giverId);
                     jsonBody.put("receiver_id", receiverId);
@@ -275,6 +296,7 @@ public class FuncionariosActivity extends AppCompatActivity {
                 jsonBody.put("locker_serial", lockerSerial);
                 jsonBody.put("action_type", actionType);
 
+                // envia o JSON
                 try (OutputStream os = conn.getOutputStream()) {
                     byte[] input = jsonBody.toString().getBytes("utf-8");
                     os.write(input, 0, input.length);
@@ -282,23 +304,39 @@ public class FuncionariosActivity extends AppCompatActivity {
 
                 int responseCode = conn.getResponseCode();
 
-                if (responseCode >= 200 && responseCode < 300) {
-                    sucessoEnvio = true;
+                // lê o inputStream correto mesmo em erro
+                InputStream is;
+                if (responseCode >= 200 && responseCode < 400) {
+                    is = conn.getInputStream();
+                } else {
+                    is = conn.getErrorStream();
                 }
 
-                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), "utf-8"));
-                StringBuilder response = new StringBuilder();
-                String responseLine;
-                while ((responseLine = br.readLine()) != null) response.append(responseLine.trim());
+                BufferedReader br = new BufferedReader(new InputStreamReader(is, "utf-8"));
+                String line;
+                while ((line = br.readLine()) != null) response.append(line.trim());
                 br.close();
 
-                Log.d("FuncionariosActivity", "Tag " + tagRFID + " enviada para " + receiverId + " | Código: " + responseCode);
+                JSONObject jsonResponse = new JSONObject(response.toString());
+
+                if (responseCode >= 200 && responseCode < 300 &&
+                        "SUCCESS".equalsIgnoreCase(jsonResponse.optString("status"))) {
+                    sucessoEnvio = true;
+                } else {
+                    errorMsg = jsonResponse.optString("message", "Erro desconhecido");
+                }
+
+                Log.d("FuncionariosActivity", "Tag " + tagRFID + " enviada para " + receiverId +
+                        " | Código: " + responseCode + " | Resposta: " + response);
 
             } catch (Exception e) {
-                Log.e("FuncionariosActivity", "Erro ao enviar tag " + tagRFID + ": " + e.getMessage());
+                errorMsg = "Erro ao enviar tag " + tagRFID + ": " + e.getMessage();
+                Log.e("FuncionariosActivity", errorMsg, e);
+                Log.e("FuncionariosActivity", "Resposta parcial: " + response.toString());
             } finally {
-                if (callback != null) callback.accept(sucessoEnvio);
+                if (callback != null) callback.onResult(sucessoEnvio, errorMsg);
             }
+
         }).start();
     }
 }
